@@ -13,46 +13,48 @@ import com.jkantrell.nbt.tag.StringTag;
 
 public class BukkitChunkReader extends ChunkReader {
 
-    // CONSTRUCTORS
     public BukkitChunkReader(Chunk chunk) { super(chunk); }
 
-
-    // IMPLEMENTATION
     @Override
     public Optional<Block> blockFromTag(CompoundTag tag) {
-        Material m = Optional.ofNullable(tag).map(t -> t.getString("Name")).map(Material::matchMaterial).orElse(null);
-        if (m == null) {
-            return Optional.empty();
-        }
+        if (tag == null) return Optional.empty();
 
-        CompoundTag properties = tag != null ? tag.getCompoundTag("Properties") : null;
+        Material material = Material.matchMaterial(tag.getString("Name"));
+        if (material == null) return Optional.empty();
+
+        CompoundTag properties = tag.getCompoundTag("Properties");
         BukkitBlock block;
-        if (properties == null) {
-            block = new BukkitBlock(m.createBlockData());
-            return Optional.of(block);
-        }
 
-        // IllegalArgumentException might be thrown if block data is not compatible with current version of Minecraft
-        // In such case, return plain block with no data
         try {
-            String dataString = TagInterpreter.COMPOUND.interpretBlockDataString(properties);
-            block = new BukkitBlock(m.createBlockData(dataString));
+            block = new BukkitBlock(createBlockData(material, properties));
         } catch (IllegalArgumentException e) {
-            block = new BukkitBlock(m.createBlockData());
+            block = new BukkitBlock(material.createBlockData()); // Fallback for incompatible data
         }
 
         return Optional.of(block);
     }
+
+    private org.bukkit.block.data.BlockData createBlockData(Material material, CompoundTag properties) {
+        if (properties == null) {
+            return material.createBlockData();
+        } else {
+            String dataString = TagInterpreter.COMPOUND.interpretBlockDataString(properties);
+            return material.createBlockData(dataString);
+        }
+    }
+
     @Override
     public Optional<Biome> biomeFromTag(StringTag tag) {
-        String[] raw = tag.getValue().split(":");
-        String name = raw.length > 1 ? raw[1] : raw[0];
+        if (tag == null || tag.getValue().isEmpty()) return Optional.empty();
+
+        String[] parts = tag.getValue().split(":");
+        String biomeName = parts.length > 1 ? parts[1] : parts[0];
+
         try {
-            org.bukkit.block.Biome nativeBiome = org.bukkit.block.Biome.valueOf(name.toUpperCase());
-            Biome biome = new BukkitBiome(nativeBiome);
-            return Optional.of(biome);
+            org.bukkit.block.Biome bukkitBiome = org.bukkit.block.Biome.valueOf(biomeName.toUpperCase());
+            return Optional.of(new BukkitBiome(bukkitBiome));
         } catch (IllegalArgumentException e) {
-            Bukkit.getLogger().warning("Could not resolve biome '" + name + "'");
+            Bukkit.getLogger().warning("Could not resolve biome: " + biomeName);
             return Optional.empty();
         }
     }

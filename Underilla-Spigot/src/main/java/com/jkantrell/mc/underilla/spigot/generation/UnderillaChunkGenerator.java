@@ -56,12 +56,12 @@ public class UnderillaChunkGenerator extends ChunkGenerator {
     // IMPLEMENTATIONS
     @Override
     public int getBaseHeight(WorldInfo worldInfo, Random random, int x, int z, HeightMap heightMap) {
-        BukkitWorldInfo info = new BukkitWorldInfo(worldInfo);
-        return this.delegate_.getBaseHeight(info, x, z, HEIGHTMAPS_MAP.get(heightMap));
+        return this.delegate_.getBaseHeight(new BukkitWorldInfo(worldInfo), x, z, HEIGHTMAPS_MAP.get(heightMap));
     }
 
     @Override
     public void generateSurface(WorldInfo worldInfo, Random random, int chunkX, int chunkZ, ChunkData chunkData) {
+<<<<<<< Updated upstream
         Optional<ChunkReader> reader = this.worldReader_.readChunk(chunkX, chunkZ);
         if (reader.isEmpty()) {
             return;
@@ -69,12 +69,17 @@ public class UnderillaChunkGenerator extends ChunkGenerator {
         BukkitChunkData data = new BukkitChunkData(chunkData);
         Bukkit.getLogger().info("Generating chunk [" + chunkX + ", " + chunkZ + "] from " + this.worldReader_.getWorldName() + ".");
         this.delegate_.generateSurface(reader.get(), data, this.worldCavesReader_.readChunk(chunkX, chunkZ).orElse(null));
+=======
+        this.worldReader_.readChunk(chunkX, chunkZ).ifPresent(reader -> {
+            ChunkReader cavesReader = this.worldCavesReader_ == null ? null : this.worldCavesReader_.readChunk(chunkX, chunkZ).orElse(null);
+            this.delegate_.generateSurface(reader, new BukkitChunkData(chunkData), cavesReader);
+        });
+>>>>>>> Stashed changes
     }
 
 
     @Override
     public List<BlockPopulator> getDefaultPopulators(World world) {
-        // Caves are vanilla generated, but they are carved underwater, this re-places the water blocks in case they were carved into.
         return List.of(new Populator(this.worldReader_, this.delegate_));
     }
 
@@ -83,13 +88,10 @@ public class UnderillaChunkGenerator extends ChunkGenerator {
         return this.delegate_.shouldGenerateNoise(chunkX, chunkZ);
     }
 
-
     @Override
     public boolean shouldGenerateSurface(WorldInfo worldInfo, Random random, int chunkX, int chunkZ) {
-        // Must always return true, bedrock and deepslate layers are generated in this step
         return this.delegate_.shouldGenerateSurface(chunkX, chunkZ);
     }
-
 
     @Override
     public boolean shouldGenerateCaves(WorldInfo worldInfo, Random random, int chunkX, int chunkZ) {
@@ -128,49 +130,37 @@ public class UnderillaChunkGenerator extends ChunkGenerator {
 
     // CLASSES
     private static class Populator extends BlockPopulator {
-
-        // FIELDS
         private final WorldReader worldReader_;
         private final Generator generator_;
 
-
-        // CONSTRUCTORS
         public Populator(WorldReader reader, Generator generator) {
             this.worldReader_ = reader;
             this.generator_ = generator;
         }
 
-
-        // OVERWRITES
         @Override
         public void populate(WorldInfo worldInfo, Random random, int chunkX, int chunkZ, LimitedRegion limitedRegion) {
             if (!CONFIG.generateCaves) {
                 return;
             }
-            ChunkReader reader = this.worldReader_.readChunk(chunkX, chunkZ).orElse(null);
-            if (reader == null) {
-                return;
-            }
-            BukkitRegionChunkData chunkData = new BukkitRegionChunkData(limitedRegion, chunkX, chunkZ, worldInfo.getMinHeight(),
-                    worldInfo.getMaxHeight());
-            this.generator_.reInsertLiquids(reader, chunkData);
+            this.worldReader_.readChunk(chunkX, chunkZ).ifPresent(reader -> {
+                BukkitRegionChunkData chunkData = new BukkitRegionChunkData(limitedRegion, chunkX, chunkZ, worldInfo.getMinHeight(), worldInfo.getMaxHeight());
+                this.generator_.reInsertLiquids(reader, chunkData);
+            });
         }
     }
 
     private class BiomeProviderFromFile extends BiomeProvider {
-
         @Override
         public @Nonnull Biome getBiome(@Nonnull WorldInfo worldInfo, int x, int y, int z) {
-            BukkitBiome biome = (BukkitBiome) worldReader_.biomeAt(x, y, z).orElse(null);
-            return biome == null ? Biome.PLAINS : biome.getBiome();
+            return worldReader_.biomeAt(x, y, z).map(biome -> ((BukkitBiome) biome).getBiome()).orElse(Biome.PLAINS);
             // TODO : if we use a cave world and transfer some biomes, transfer the biomes here.
         }
 
         @Override
         public @Nonnull List<Biome> getBiomes(@Nonnull WorldInfo worldInfo) {
-            return List.of(Biome.values()).stream().filter(b -> !b.equals(Biome.CUSTOM)).toList();
+            return List.of(Biome.values());
         }
-
     }
 
 }

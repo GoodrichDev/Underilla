@@ -12,10 +12,10 @@ public class BukkitWorldReader extends com.jkantrell.mc.underilla.core.reader.Wo
         super(worldPath);
     }
     public BukkitWorldReader(String worldPath, int cacheSize) throws NoSuchFieldException {
-        super(worldPath, cacheSize);
+        super(worldPath);
     }
     public BukkitWorldReader(File worldDir) throws NoSuchFieldException {
-        super(worldDir);
+        super(String.valueOf(worldDir));
     }
     public BukkitWorldReader(File worldDir, int cacheSize) throws NoSuchFieldException {
         super(worldDir, cacheSize);

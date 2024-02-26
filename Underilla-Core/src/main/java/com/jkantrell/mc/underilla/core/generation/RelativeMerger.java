@@ -75,16 +75,19 @@ public class RelativeMerger implements Merger {
         for (ChunkReader c : chunks) {
             if (keepReferenceWorldBlocks_) {
                 c.locationsOf(m -> !m.isSolid() || isCustomWorldOreOutOfVanillaCaves(m, null), airColumn, chunkData.getMinHeight()).stream()
-                        // Constraining the height up to the air column is also key for performance
-                        .filter(m -> !m.value().isSolid()
-                                || isCustomWorldOreOutOfVanillaCaves(m.value(), blockGetter.apply(((LocatedBlock) m).vector())))
-                        .map(LocatedBlock::vector).map(v -> RelativeMerger.absoluteCoordinates(c.getX(), c.getZ(), v))
+                        .filter(locatedBlock -> {
+                            Block block = locatedBlock.value(); // Assuming value() returns the Block
+                            Block vanillaBlock = blockGetter.apply(locatedBlock.vector());
+                            // Safely check if block is not null and then proceed with your logic
+                            return block != null && (!block.isSolid() || isCustomWorldOreOutOfVanillaCaves(block, vanillaBlock));
+                        })
+                        .map(LocatedBlock::vector)
+                        .map(v -> RelativeMerger.absoluteCoordinates(c.getX(), c.getZ(), v))
                         .forEach(fillVectors::add);
             } else {
-
-                c.locationsOf(m -> !m.isSolid(), airColumn, chunkData.getMinHeight()).stream()
-                        // Constraining the height up to the air column is also key for performance
-                        .map(LocatedBlock::vector).map(v -> RelativeMerger.absoluteCoordinates(c.getX(), c.getZ(), v))
+                c.locationsOf(block -> block != null && !block.isSolid(), airColumn, chunkData.getMinHeight()).stream()
+                        .map(LocatedBlock::vector)
+                        .map(v -> RelativeMerger.absoluteCoordinates(c.getX(), c.getZ(), v))
                         .forEach(fillVectors::add);
             }
         }
@@ -120,7 +123,7 @@ public class RelativeMerger implements Merger {
         }
 
         // Spreading filler vectors
-        fillVectors = spreader.setRootVectors(fillVectors).spread();
+        fillVectors = new ArrayList<>(spreader.setRootVectors(fillVectors).spread());
 
         fillVectors.stream()
                 // Cutting everything out of the actual chunk
